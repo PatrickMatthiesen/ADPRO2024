@@ -108,9 +108,13 @@ object List:
 
   // Exercise 11
 
-  def foldLeft1[A, B] (l: List[A], z: B, f: (B, A) => B): B = ??? 
-    // no idea what he means by "in terms of foldRight"
- 
+  def foldLeft1[A, B] (l: List[A], z: B, f: (B, A) => B): B =  
+    foldRight(l, identity[B], 
+      (a, c) =>
+        (b) => c(f(b,a)) // continuation function that later will get z as argument
+    )(z) // initial value of the continuation function
+
+
   // Exercise 12
 
   def concat[A] (l: List[List[A]]): List[A] =
@@ -138,12 +142,23 @@ object List:
       (l,r) match
         case (Nil,_) | (_, Nil) => acc
         case (Cons(a, ax), Cons(b, bx)) => aux(ax) (bx) (Cons(a+b, acc))
-    aux(l) (r) (Nil)
+    reverse (aux(l) (r) (Nil))
 
   // Exercise 17
 
-  def zipWith[A, B, C] (l: List[A], r: List[B], f: (A,B) => C): List[C] = ???
+  def zipWith[A, B, C] (l: List[A], r: List[B], f: (A,B) => C): List[C] =
+    def aux (l: List[A], r: List[B], acc: List[C]): List[C] = 
+      (l,r) match
+        case (Nil,_) | (_, Nil) => acc
+        case (Cons(a, ax), Cons(b, bx)) => aux(ax, bx, Cons(f(a,b), acc))
+    reverse (aux(l, r, Nil))
 
   // Exercise 18
 
-  def hasSubsequence[A] (sup: List[A], sub: List[A]): Boolean = ???
+  def hasSubsequence[A] (sup: List[A], sub: List[A]): Boolean = 
+    def aux (sup: List[A], sub: List[A]): Boolean = 
+      (sup, sub) match
+        case (_, Nil) => true
+        case (Nil, _) => false
+        case (Cons(a, ax), Cons(b, bx)) => if a == b then aux(ax, bx) else aux(ax, sub)
+    aux(sup, sub)
