@@ -5,7 +5,7 @@ package adpro.option
 
 // Exercise 1
 
-trait OrderedPoint 
+trait OrderedPoint
   extends scala.math.Ordered[java.awt.Point]:
 
   this: java.awt.Point =>
@@ -18,7 +18,7 @@ trait OrderedPoint
 
 // Try the following (and similar) tests in the repl (sbt console):
 //
-// import adpro._
+// import adpro.option.*
 // val p = new java.awt.Point(0, 1) with OrderedPoint
 // val q = new java.awt.Point(0, 2) with OrderedPoint
 // assert(p < q)
@@ -110,7 +110,7 @@ enum Option[+A]:
   def forAll(p: A => Boolean): Boolean = this match
     case None => true
     case Some(a) => p(a)
-    
+
 
 
 
@@ -137,7 +137,7 @@ object Option:
     
 end Option
 
- 
+
 
 // Exercise that are outside the Option companion object
 
