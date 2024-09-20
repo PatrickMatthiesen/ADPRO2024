@@ -168,7 +168,8 @@ def mean(xs: Seq[Double]): Option[Double] =
 // Exercise 8
 
 def varianceNormal(xs: Seq[Double]): Option[Double] = // not correct - uses map
-  mean(xs).flatMap(m => mean(xs.map(x => math.pow(x - m, 2))))
+  // mean(xs).flatMap(m => mean(xs.map(x => math.pow(x - m, 2))))
+  mean(xs).flatMap(m => Some(xs.foldLeft(0.0)((a,b) => a + math.pow(b - m, 2)) / xs.length))
 
 // now using for-comprehension
 def variance(xs: Seq[Double]): Option[Double] =
