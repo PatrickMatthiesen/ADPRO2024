@@ -17,6 +17,7 @@ trait OrderedPoint
       case _ => 1
 
 // Try the following (and similar) tests in the repl (sbt console):
+// $ scala-cli repl .\03-option\Exercises.scala
 //
 // import adpro.option.*
 // val p = new java.awt.Point(0, 1) with OrderedPoint

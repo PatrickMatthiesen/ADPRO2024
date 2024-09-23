@@ -65,7 +65,11 @@ enum LazyList[+A]:
   // Exercise 2
 
   def toList: List[A] = 
-    ???
+    // this.foldRight(List.empty[A])((a, z) => a :: z)
+    this match
+      case Empty => List.empty[A]
+      case Cons(h, t) => h() :: t().toList
+    
 
   // Test in the REPL, for instance: LazyList(1,2,3).toList 
   // (and see what list is constructed)
@@ -73,47 +77,67 @@ enum LazyList[+A]:
   // Exercise 3
 
   def take(n: Int): LazyList[A] = 
-    ???
+    this match
+      case Empty => Empty
+      case Cons(h, t) => 
+        if n <= 0 then Empty
+        else cons(h(), t().take(n-1))
 
   def drop(n: Int): LazyList[A] = 
-    ???
+    this match
+      case Empty => Empty
+      case Cons(h, t) => 
+        if n <= 0 then this
+        else t().drop(n-1)
+    
 
   // Exercise 4
 
   def takeWhile(p: A => Boolean): LazyList[A] = 
-    ???
+    this match
+      case Empty => Empty
+      case Cons(h, t) => 
+        if p(h()) then cons(h(), t().takeWhile(p))
+        else Empty
 
   // Exercise 5
   
   def forAll(p: A => Boolean): Boolean =
-    ???
+    this match
+      case Empty => true
+      case Cons(h, t) =>
+        if p(h()) then t().forAll(p)
+        else false    
  
   // Note 1. lazy; tail is never forced if satisfying element found this is
   // because || is non-strict
   // Note 2. this is also tail recursive (because of the special semantics
   // of ||)
   def exists(p: A => Boolean): Boolean = 
-    ???
+    this match
+      case Empty => false
+      case Cons(h, t) => p(h()) || t().exists(p)
+    
 
   // Exercise 6
   
   def takeWhile1(p: A => Boolean): LazyList[A] =
-    ???
+    this.foldRight(Empty)((a, z) => if p(a) then cons(a, z) else Empty)
 
   // Exercise 7
   
   def headOption1: Option[A] = 
-    ???
+    this.foldRight(None: Option[A])((a, z) => Some(a))
 
   // Exercise 8
   
   // Note: The type is incorrect, you need to fix it
-  def map(f: Any): LazyList[Int] = 
-    ???
+  def map[B](f: A => B): LazyList[B] = 
+    this.foldRight(Empty)((a, z) => cons(f(a), z))
 
   // Note: The type is incorrect, you need to fix it
-  def filter(p: Any): LazyList[Any] = 
-    ???
+  def filter(p: A => Boolean): LazyList[A] = 
+    this.foldRight(Empty)((a, z) => if p(a) then cons(a, z) else z)
 
   /* Note: The type is given correctly for append, because it is more complex.
    * Try to understand the type. The contsraint 'B >: A' requires that B is a
@@ -128,32 +152,45 @@ enum LazyList[+A]:
    * getOrElse last week, and the type of foldRight this week.
    */
   def append[B >: A](that: => LazyList[B]): LazyList[B] = 
-    ???
+    this.foldRight(that)((a, acc) => cons(a, acc))
 
   // Note: The type is incorrect, you need to fix it
-  def flatMap(f: Any): LazyList[Any] = 
-    ???
+  def flatMap[B](f: A => LazyList[B]): LazyList[B] = 
+    this.foldRight(Empty)((a,acc) => f(a).append(acc))
 
   // Exercise 9
-  // Type answer here
+  // Type answer here:
   //
-  // ...
+  // Find needs to return at the first element that satisfies the predicate, which filter does well in a linked list.
+  // For a non linked list, filter could be quite expensive compared to other methods like like binary search.
   //
   // Scroll down to Exercise 10 in the companion object below
 
   // Exercise 13
 
   def mapUnfold[B](f: A => B): LazyList[B] =
-    ???
+    unfold(this) {
+      case Empty => None
+      case Cons(h, t) => Some((f(h()), t()))
+    }
 
   def takeUnfold(n: Int): LazyList[A] =
-    ???
+    unfold((this, n)) {
+      case (Cons(h, t), n) if n > 0 => Some((h(), (t(), n-1)))
+      case _ => None
+    }
 
   def takeWhileUnfold(p: A => Boolean): LazyList[A] =
-    ???
+    unfold(this) {
+      case Cons(h, t) if p(h()) => Some(h(), t())
+      case _ => None
+    }
 
   def zipWith[B >: A, C](ope: (=> B, => B) => C)(bs: LazyList[B]): LazyList[C] =
-    ???
+    unfold(this, bs) {
+      case (Cons(h1,t1), Cons(h2,t2)) => Some(ope(h1(), h2()), (t1(), t2()))
+      case _ => None
+    }
 
 end LazyList // enum ADT
 
@@ -178,31 +215,36 @@ object LazyList:
   // Exercise 1
 
   def from(n: Int): LazyList[Int] =
-    ???
+    cons(n, from(n+1))
 
   def to(n: Int): LazyList[Int] =
-    ???
+    cons(n, to(n-1))
 
   lazy val naturals: LazyList[Int] =
-    ???
+    from(1)
 
   // Scroll up to Exercise 2 to the enum LazyList definition 
   
   // Exercise 10
 
   // Note: The type is incorrect, you need to fix it
-  lazy val fibs: Any = 
-    ???
+  lazy val fibs: LazyList[Int] = 
+    def go(a: Int, b: Int): LazyList[Int] = 
+      cons(a, go(b, a+b))
+    go(0, 1)
 
   // Exercise 11
 
   def unfold[A,S](z: S)(f: S => Option[(A, S)]): LazyList[A] =
-    ???
+    (for 
+      (a, s) <- f(z)
+    yield cons(a, unfold(s)(f))).getOrElse(empty)
 
   // Exercise 12
 
   // Note: The type is incorrect, you need to fix it
-  lazy val fibsUnfold: Any = ???
+  lazy val fibsUnfold: LazyList[Int] = 
+    unfold((0, 1)) { case (a, b) => Some((a, (b, a+b))) }
 
   // Scroll up for Exercise 13 to the enum
 
