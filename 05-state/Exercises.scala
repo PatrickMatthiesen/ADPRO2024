@@ -5,6 +5,7 @@ package adpro.state
 
 import adpro.lazyList.LazyList
 import adpro.lazyList.LazyList.*
+import scala.annotation.static
 
 
 trait RNG:
@@ -29,28 +30,40 @@ object RNG:
   // Exercise 1
 
   def nonNegativeInt(rng: RNG): (Int, RNG) =
-    ???
+    rng.nextInt match
+      case (n, next) if n == Int.MinValue => nonNegativeInt(next)
+      case (n, next) => (n.abs, next)
 
   // Exercise 2
 
   def double(rng: RNG): (Double, RNG) = 
-    ???
+    rng.nextInt match
+      case (n, next) =>
+        (n.abs.toDouble / Int.MaxValue.toDouble, next)
 
   // Exercise 3
   
   // The return type is broken and needs to be fixed
-  def intDouble(rng: RNG): Any = 
-    ???
+  def intDouble(rng: RNG): ((Int, Double), RNG) = 
+    val (i, next) = nonNegativeInt(rng)
+    val (d, next2) = double(next)
+    ((i,d), next2)
 
   // The return type is broken and needs to be fixed
-  def doubleInt(rng: RNG): Any = 
-    ???
+  def doubleInt(rng: RNG): ((Double, Int), RNG) = 
+    val ((i, d), next) = intDouble(rng)
+    ((d, i), next)
 
   // Exercise 4
 
   // The return type is broken and needs to be fixed
-  def ints(size: Int)(rng: RNG): Any = 
-    ???
+  def ints(size: Int)(rng: RNG): (List[Int], RNG) = 
+    def aux (n: Int, r: RNG, acc: List[Int]): (List[Int], RNG) =
+      if n == 0 then (acc, r)
+      else
+        val (i, next) = r.nextInt
+        aux(n-1, next, i :: acc)
+    aux(size, rng, List())
 
 
   type Rand[+A] = RNG => (A, RNG)
@@ -70,28 +83,46 @@ object RNG:
   // Exercise 5
 
   lazy val double2: Rand[Double] = 
-    ???
+    map(int) { i => i.abs.toDouble / Int.MaxValue.toDouble }
 
   // Exercise 6
 
   def map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = 
-    ???
+    rng => 
+      val (a, rng1) = ra(rng)
+      val (b, rng2) = rb(rng1)
+      (f(a, b), rng2)
 
   // Exercise 7
 
   def sequence[A](ras: List[Rand[A]]): Rand[List[A]] =
-    ??? 
+    rng => 
+      ras.foldRight((List.empty[A], rng)) {
+        case (ra, (acc, r)) =>
+          val (a, next) = ra(r)
+          (a :: acc, next)
+      }
+
+  def sequence2[A](ras: List[Rand[A]]): Rand[List[A]] =
+    rng => 
+      ras.foldRight((List.empty[A], rng)) ( (ra, accRng) =>
+        val (acc, r) = accRng
+        val (a, next) = ra(r)
+        (a :: acc, next)
+      )
 
   def ints2(size: Int): Rand[List[Int]] =
-    ???
+    sequence(List.fill(size)(int))
 
   // Exercise 8
 
   def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] =
-    ???
+    rng => 
+      val (a, rng2) = f(rng)
+      g(a)(rng2)
 
   def nonNegativeLessThan(bound: Int): Rand[Int] =
-    ???
+    flatMap(nonNegativeInt) (i => unit(i % bound))
 
 end RNG
 
@@ -103,13 +134,23 @@ case class State[S, +A](run: S => (A, S)):
   // Search for the second part (sequence) below
   
   def flatMap[B](f: A => State[S, B]): State[S, B] = 
-    ???
+    State { s =>
+      val (a, s1) = run(s)
+      f(a).run(s1)
+    }
 
   def map[B](f: A => B): State[S, B] = 
-    ???
+    State { s => 
+      val (a, s1) = run(s)
+      (f(a), s1)
+    }
 
   def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] = 
-    ???
+    State { s => 
+      val (a, s1) = run(s)
+      val (b, s2) = sb.run(s1)
+      (f(a, b), s2)
+    }
 
 
 object State:
@@ -133,21 +174,30 @@ object State:
   // Exercise 9 (sequence, continued)
  
   def sequence[S,A](sas: List[State[S, A]]): State[S, List[A]] =
-    ???
+    State { s =>
+      sas.foldRight((List.empty[A], s)) {
+        case (ra, (acc, r)) =>
+          val (a, next) = ra.run(r)
+          (a :: acc, next)
+      }
+    }
 
   import adpro.lazyList.LazyList
 
   // Exercise 10 (stateToLazyList)
   
   def stateToLazyList[S, A](s: State[S,A])(initial: S): LazyList[A] =
-    ???
+    val (a, s1) = s.run(initial)
+    Cons(() => a, () => stateToLazyList(s)(s1))
+
 
   // Exercise 11 (lazyInts out of stateToLazyList)
   
   def lazyInts(rng: RNG): LazyList[Int] = 
-    ???
+    val state = State(RNG.int)
+    stateToLazyList(state)(rng)
 
   lazy val tenStrictInts: List[Int] = 
-    ???
+    lazyInts(RNG.SimpleRNG(42)).take(10).toList
 
 end State
