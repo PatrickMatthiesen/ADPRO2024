@@ -56,30 +56,52 @@ def listMonoid[A] = new Monoid[List[A]]:
 
 // Exercise 1
 
-lazy val intAddition: Monoid[Int] = ???
+lazy val intAddition: Monoid[Int] = new Monoid:
+  def combine(a1: Int, a2: Int): Int = a1 + a2
+  val empty = 0
 
-lazy val intMultiplication: Monoid[Int] = ???
+lazy val intMultiplication: Monoid[Int] = new Monoid:
+  def combine(a1: Int, a2: Int): Int = a1 * a2
+  val empty = 1
 
-lazy val booleanOr: Monoid[Boolean] = ???
+lazy val booleanOr: Monoid[Boolean] = new Monoid:
+  def combine(a1: Boolean, a2: Boolean): Boolean = a1 || a2
+  val empty = false
 
-lazy val booleanAnd: Monoid[Boolean] = ???
-
+lazy val booleanAnd: Monoid[Boolean] = new Monoid:
+  def combine(a1: Boolean, a2: Boolean): Boolean = a1 && a2
+  val empty = true
 
 // Exercise 2
 
 // a)
 
-def optionMonoid[A]: Monoid[Option[A]] = ???
+def optionMonoid[A]: Monoid[Option[A]] = new Monoid:
+  def combine(a1: Option[A], a2: Option[A]): Option[A] = 
+    (a1, a2) match
+      case (Some(a), _) => Some(a)
+      case (_, Some(a)) => Some(a)
+      case _ => None
+  val empty = None
 
 
 // b)
 
-def optionMonoidLift[A: Monoid]: Monoid[Option[A]] = ???
-
+def optionMonoidLift[A: Monoid]: Monoid[Option[A]] = new Monoid:
+  def combine(a1: Option[A], a2: Option[A]): Option[A] = 
+    (a1, a2) match
+      case (Some(a), Some(b)) => Some(summon[Monoid[A]].combine(a, b))
+      case (Some(a), None) => Some(a)
+      case (None, Some(b)) => Some(b)
+      case (None, None) => None
+  val empty: Option[A] = None
 
 // Exercise 3
 
-def endoMonoid[A]: Monoid[A => A] = ???
+def endoMonoid[A]: Monoid[A => A] = new Monoid:
+  def combine(a1: A => A, a2: A => A): A => A = 
+    a1 compose a2
+  val empty = identity
 
 
 // Exercise 4 (tests exercises 1-2, written by student)
@@ -88,22 +110,23 @@ object MonoidEx4Spec
   extends org.scalacheck.Properties("exerc4"):
 
   property("Ex04.01: intAddition is a monoid") =
-    ???
+    intAddition.laws.monoid
 
   property("Ex04.02: intMultiplication is a monoid") =
-    ???
+    intMultiplication.laws.monoid
 
   property("Ex04.03: booleanOr is a monoid") =
-    ???
+    booleanOr.laws.monoid
 
   property("Ex04.04: booleanAnd is a monoid") =
-    ???
+    booleanAnd.laws.monoid
 
   property("Ex04.05: optionMonoid is a monoid") =
-    ???
+    optionMonoid[Int].laws.monoid
 
   property("Ex04.06: optionMonoidLift is a monoid") =
-    ???
+    implicit val intMonoid: Monoid[Int] = intAddition
+    optionMonoidLift[Int].laws.monoid
 
 end MonoidEx4Spec
 
@@ -115,7 +138,7 @@ end MonoidEx4Spec
 
 extension [B](mb: Monoid[B])
   def foldMap[A](as: List[A])(f: A => B): B =
-    ???
+    as.foldLeft(mb.empty) { (b, a) => mb.combine(f(a), b) }
 
 
 // Exercise 6
@@ -129,10 +152,18 @@ extension [B](mb: Monoid[B])
 extension [A: Arbitrary: Equality](ma: Monoid[A])
 
   def homomorphism[B](f: A => B)(mb: Monoid[B]): Prop = 
-    ???
+    forAll { (a1: A, a2: A) =>
+      mb.combine(f(a1),f(a2)) === f(ma.combine(a1,a2))
+    } :| "monoid-homomorphism"
 
   def isomorphism[B: Arbitrary](f: A => B, g: B => A)(mb: Monoid[B]): Prop =
-    ???
+      val fHom = ma.homomorphism(f)(mb)
+      val gHom = mb.homomorphism(g)(ma)
+      val Inv = forAll { (a: A, b: B) => 
+        g(f(a)) === a && f(g(b)) === b
+      } :| "Inv"
+
+      fHom && gHom && Inv :| "monoid-isomorphism"
 
 
 // Exercise 7 (tests for Exercise 6, written by the student)
@@ -141,7 +172,7 @@ object MonoidEx7Spec
   extends org.scalacheck.Properties("exerc7"):
 
   property("Ex07.01: stringMonoid is isomorphic to listMonoid[Char]") =
-    ???
+    isomorphism(stringMonoid)(_.toList, _.mkString)(listMonoid)
 
 
 // "Exercise 8 (tests for Exercise 1, written the by student)
@@ -150,12 +181,15 @@ object MonoidEx8Spec
   extends org.scalacheck.Properties("exerc8"):
 
   property("Ex08.01: booleanOr is isomorphic to booleanAnd") =
-    ???
+    isomorphism(booleanAnd)(!_,!_)(booleanOr)
 
 
 // Exercise 9
 
-def productMonoid[A, B](ma: Monoid[A])(mb: Monoid[B]) = ???
+def productMonoid[A, B](ma: Monoid[A])(mb: Monoid[B]) = new Monoid[(A, B)]:
+  def combine(x: (A, B), y: (A, B)) = 
+    (ma.combine(x._1, y._1), mb.combine(x._2, y._2))
+  val empty = (ma.empty, mb.empty)
 
 
 // Exercise 10 (tests for Exercise 9, written by the student)
@@ -164,7 +198,7 @@ object MonoidEx10Spec
   extends org.scalacheck.Properties("exer10"):
 
   property("Ex10.01: productMonoid(optionMonoid[Int])(listMonoid[String]) gives a monoid") =
-    ???
+    productMonoid(optionMonoid[Int])(listMonoid[String]).laws.monoid
 
 
 /* This will be used in the Foldable below: We can get the dual of any monoid
@@ -199,7 +233,10 @@ end Foldable
 
 // Exercise 11
 
-given foldableList[A]: Foldable[List] = ???
+given foldableList[A]: Foldable[List] = new Foldable:
+  extension [A](as: List[A])
+    def foldMap[B](f: A => B)(using mb: Monoid[B]): B = 
+      as.foldLeft(mb.empty) { (acc, item) => mb.combine(acc, f(item))}
 
  
 // Exercise 12
@@ -210,7 +247,7 @@ given foldableList[A]: Foldable[List] = ???
 extension [F[_]: Foldable, A] (as: F[A])
   def toList: List[A] = as.toListF
   def toListF: List[A] =
-    ???
+    as.foldLeft(List.empty) { (acc, item) => item :: acc}
 
 
 
@@ -245,7 +282,12 @@ end Functor
 
 // Exercise 13
 
-lazy val optionFunctor: Functor[Option] = ???
+lazy val optionFunctor: Functor[Option] = new Functor:
+  extension [A](fa: Option[A]) 
+    def map[B](f: A => B): Option[B] =
+      fa match 
+        case Some(value) => Some(f(value))
+        case _ => None
 
 
 // this instance is provided
@@ -262,7 +304,7 @@ object FunctorEx14Spec
   // Exercise 14
 
   property("Ex14.02: optionFunctor satisfies map law (tests Exercise 13)") =
-    ???
+    optionFunctor.functorLaws.map[Option[Int]]
 
 end FunctorEx14Spec
 
@@ -325,9 +367,20 @@ end Monad
 
 // Exercise 15
 
-lazy val optionMonad: Monad[Option] = ???
+lazy val optionMonad: Monad[Option] = new Monad:
 
-lazy val listMonad: Monad[List] = ???
+  def unit[A](a: => A): Option[A] = Some(a)
+  
+  extension [A](fa: Option[A]) override def flatMap[B](f: A => Option[B]): Option[B] = 
+    fa.flatMap(f)
+
+lazy val listMonad: Monad[List] = new Monad:
+
+  def unit[A](a: => A): List[A] = List(a)
+
+  extension [A](fa: List[A]) override def flatMap[B](f: A => List[B]): List[B] =
+    fa.flatMap(f)
+
 
 
 // Exercise 16 (tests for Exercise 15, written by the student)
@@ -336,10 +389,10 @@ object FunctorEx16Spec
   extends org.scalacheck.Properties("exer16"):
 
   property("Ex16.01: optionMonad is a monad") =
-    ???
+    optionMonad.monadLaws.monad[Int, Int, Int]
 
   property("Ex16.02: listMonad is a monad") =
-    ???
+    listMonad.monadLaws.monad[Int, Int, Int]
 
 end FunctorEx16Spec
 
@@ -351,22 +404,27 @@ end FunctorEx16Spec
 
 extension [F[_]](m: Monad[F]) 
   def sequence[A](fas: List[F[A]]): F[List[A]] = 
-    ???
+    fas.foldRight(m.unit(List.empty[A])) { (item, acc) =>
+      m.map2(acc)(item) { (a, b) => b :: a }
+    }
 
 
 // Exercise 18
 
 extension [F[_]](m: Monad[F]) 
   def replicateM[A](n: Int, ma: F[A]): F[List[A]] =
-    ???
+    m.sequence(List.fill[F[A]](n)(ma))
 
 // Write in the answer below ...
 //
-// ???
+// the list monad it will make a catision product from the elemts of the input list
+//
+// for Option monad ma is Some it will return Some(List(...)) with n dublicates of the value 
+//  else it will return none
 
 
 // Exercise 19
 
 extension [F[_]](m: Monad[F]) 
   def compose[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] =
-    ???
+    a => m.flatMap(f(a)) { b => g(b) }

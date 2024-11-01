@@ -73,7 +73,7 @@ object Streaming:
 
 
   def fViaFold (l: LazyList[Int]): Int = 
-    ???
+    l.foldRight(0) { (item, acc) => if (item & 1) == 0 then acc else acc + 1 }
 
 end Streaming
 
